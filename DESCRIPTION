@@ -1,0 +1,14 @@
+Package: provoc2
+Title: provoc2
+Version: 2.0
+Authors@R: 
+    person(given = "Joris",
+           family = "Huguenin",
+           role = c("aut", "cre"),
+           email = "joris.huguenincefe.cnrs.fr")
+Description: perform a rapid overview of VOC analysis
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
