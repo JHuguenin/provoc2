@@ -1,82 +1,6 @@
-# functions
-{
+# Functions
 
-#read.h5
-read.h5 <- function(num_fil=1, ll = f_h5){
-
-  # find the name of file
-  name_h5 <- nm_ls(num_fil)
-
-  # files import
-  act_h5 <- paste0("h5/",dir("h5")[num_fil]) %>% H5Fopen()
-
-  # abscissa extraction [~160 000 pts]
-  xMS <- act_h5$FullSpectra$MassAxis
-
-  # intensity extraction
-  all_MS <- act_h5$FullSpectra$TofData[,1,,]
-                # intensities extraction [ acquisition number * 160 000 pts]
-  fmr <- dim(all_MS)
-  dim(all_MS) <- c(fmr[1], fmr[2] * fmr[3]) # for 2d array
-
-  # timing extraction
-  all_timing <- act_h5$TimingData$BufTimes
-  dim(all_timing) <- c(fmr[2] * fmr[3])
-
-  # date extraction
-  all_date <- acq.time(act_h5) + all_timing
-
-  #TPS2
-  all_TPS2 <- act_h5$TPS2$TwData
-  fmr <- dim(all_TPS2)
-  dim(all_TPS2) <- c(fmr[1], fmr[2] * fmr[3])
-  row.names(all_TPS2) <- act_h5$TPS2$TwInfo
-
-  # Files close
-  H5Fclose(act_h5)
-
-  # reduction
-  fmr <- 1:det_c(xMS,50)
-  xMS <- as.vector(xMS[-fmr])
-  MS <- all_MS[-fmr,]
-
-  # print the working progress and the time code
-  print.h(paste0(name_h5, " # ",which(num_fil == ll), "/", length(ll)))
-
-  # return
-  list("name" = name_h5,
-       "xMS" = xMS,
-       "MS" = MS,
-       "date" = all_date,
-       "timing" = all_timing,
-       "nbr_sp" = ncol(MS),
-       "meta" = all_TPS2)
-}
-
-#concatenation
-conc.lst <- function(list_n, elem = 1){
-  list_n[[elem]]
-}
-
-#concatenation
-dim.lst <- function(list_n, elem = 1){
-  dim(list_n[[elem]])
-}
-
-#names of acquisition
-prep.names <- function(L){
-  fmr <- log10(L$nbr_sp) %>% floor() %>% add(1)
-  rbind(fmr, L$names, L$nbr_sp)
-}
-
-names.samples <- function(vec)  str_pad(1:vec[3],vec[1], pad = "0") %>% paste(vec[2],.,sep = "_")
-
-convertStr2List <- function(L){
-  plip <- function(vec) return(vec)
-  fmr <- unlist(L$names_acq) %>% lapply(plip)
-  names(fmr) <- unlist(L$names_acq)
-  return(fmr)
-}
+#### Gestion of time ####
 
 # acq.time
 acq.time <- function(ls.t = ls_h5[[1]]){
@@ -91,9 +15,9 @@ acq.time <- function(ls.t = ls_h5[[1]]){
   return(eph)
 }
 
-# mass shift ####
-length.xMS <- function(splist) length(splist$xMS)
+#### Shift of x mass ####
 
+# mass shift
 mass.shift <- function(Li){
   min_xMS <- lapply(Li, length.xMS) %>% unlist()
 
@@ -125,18 +49,8 @@ mass.shift <- function(Li){
   }
 }
 
-# concatenation MS ####
-return.MSa <- function(splist, brn) return(t(splist$MS[1:brn,]))
-
-# create Mass Spectrum objet ####
-create_local_MS <- function(MS, xMS) createMassSpectrum(xMS,MS)
-
-# return to spectra
-mat.spectra <- function(spobj) spobj@intensity
-mass.spectra <- function(spobj) spobj@mass
-
-# Fonction inutile : ####
-citation_list <- {list(
+#### Fonction inutile ####
+citation.list <- {list(
   c("Il faut aller trop loin pour decouvrir les limites.", "Joris Huguenin"),
   c("Les trous dans les pantalons c'est comme les enfants. ca n'arrete pas de grandir", "Joris Huguenin"),
   c("Dieu, aie pitie de nous, nous sommes a la merci des ingenieurs !", 'Dr.Malcom, Jurassic Park'),
@@ -193,9 +107,10 @@ Y'a un bout d'temps, mon colon, qu'voter ca s'rait interdit","Renaud"),
   c("Est-il indispensable d'etre cultive quand il suffit de fermer sa gueule pour briller en societe ?","Pierre Desproges"),
   c("On ne discute pas recettes de cuisine avec des anthropophages.", "Jean-Pierre Vernant"))}
 
-# Make the name of samples. The date (20yymmdd_hhmmss.h5) is deleting and
-# the acquisitions with the same name.
-nm_ls <- function(f_h5){
+#### Gestion of name ####
+
+# List of names
+nm.ls <- function(f_h5){
   nm_h5 <- str_remove_all(dir("h5")[f_h5],"_20......_......")
   nm_h5 <- str_remove_all(nm_h5,"20......_......_")
   nm_h5 <- str_remove_all(nm_h5,".h5")
@@ -211,19 +126,63 @@ nm_ls <- function(f_h5){
   }
   return(nm_h5)
 }
+# Make the name of samples. The date (20yymmdd_hhmmss.h5)
+# is deleting and the acquisitions with the same name.
 
-# retourne l'index valable d'une borne le long d'un vecteur.
-det_c <- function(brn,vec){
-  subtract(vec,brn) %>% sapply(abs) %>% which.min()
+#### Importation ####
+
+# read.h5
+read.h5 <- function(num_fil=1, ll = f_h5){
+
+  # find the name of file
+  name_h5 <- nm.ls(num_fil)
+
+  # files import
+  act_h5 <- paste0("h5/",dir("h5")[num_fil]) %>% H5Fopen()
+
+  # abscissa extraction [~160 000 pts]
+  xMS <- act_h5$FullSpectra$MassAxis
+
+  # intensity extraction
+  all_MS <- act_h5$FullSpectra$TofData[,1,,]
+                # intensities extraction [ acquisition number * 160 000 pts]
+  fmr <- dim(all_MS)
+  dim(all_MS) <- c(fmr[1], fmr[2] * fmr[3]) # for 2d array
+
+  # timing extraction
+  all_timing <- act_h5$TimingData$BufTimes
+  dim(all_timing) <- c(fmr[2] * fmr[3])
+
+  # date extraction
+  all_date <- acq.time(act_h5) + all_timing
+
+  #TPS2
+  all_TPS2 <- act_h5$TPS2$TwData
+  fmr <- dim(all_TPS2)
+  dim(all_TPS2) <- c(fmr[1], fmr[2] * fmr[3])
+  row.names(all_TPS2) <- act_h5$TPS2$TwInfo
+
+  # Files close
+  H5Fclose(act_h5)
+
+  # reduction
+  fmr <- 1:det_c(xMS,50)
+  xMS <- as.vector(xMS[-fmr])
+  MS <- all_MS[-fmr,]
+
+  # print the working progress and the time code
+  print.h(paste0(name_h5, " # ",which(num_fil == ll), "/", length(ll)))
+
+  # return
+  list("name" = name_h5,
+       "xMS" = xMS,
+       "MS" = MS,
+       "date" = all_date,
+       "timing" = all_timing,
+       "nbr_sp" = ncol(MS),
+       "meta" = all_TPS2)
 }
 
-# print le texte suivi de l'heure
-print.h <- function(txt = "hello there") heure() %>% paste0(txt,", ",.) %>% print()
-
-# donne l'heure
-heure <- function() str_split(Sys.time(),pattern = " ")[[1]][2]
-
-#### import ####
 import.h5 <- function(wdir = wd){
 
   if(("Figures" %in% dir())==FALSE){
@@ -236,77 +195,260 @@ import.h5 <- function(wdir = wd){
         want analyse.")
   }
 
-  # Data importation ####
+  # data importation ####
   f_h5 <- dir("h5") %>% grep(".h5",.)     # localise h5 files
 
-  length(citation_list) %>% sample(1) %>% citation_list[[.]] %>% cat()
+  length(citation.list) %>% sample(1) %>% citation.list[[.]] %>% cat()
+  cat(" \n - - - - - - - - - - - - - - - \n")
   list_h5 <- lapply(f_h5, read.h5, ll = f_h5)
 
   # formating of sp list ####
   sp <- list()
   sp$names <- sapply(list_h5,conc.lst, elem = 1)
-  sp$date <- sapply(list_h5,conc.lst, elem = 4, simplify = FALSE)
-  sp$timing <- sapply(list_h5,conc.lst, elem = 5, simplify = FALSE)
+  sp$Tinit$date <- sapply(list_h5,conc.lst, elem = 4, simplify = FALSE)
+  sp$Tinit$timing <- sapply(list_h5,conc.lst, elem = 5, simplify = FALSE)
   sp$nbr_sp <- sapply(list_h5,conc.lst, elem = 6)
   sp$meta <- sapply(list_h5,conc.lst, elem = 7, simplify = FALSE)
-  sp$wd <- wdir
 
   sp$xMS <- mass.shift(list_h5)
   print.h("Concatene MS")
-  sp$MS <- sapply(list_h5, return.MSa, brn = length(sp$xMS), simplify = FALSE) %>% do.call(rbind,.)
-
+  sp$MS <- list()
+  for(i in 1:length(list_h5)){
+    sp$MS <- c(sp$MS, list(list_h5[[i]]$MS[1:length(sp$xMS),]))
+    list_h5[[i]] <- 0
+  }
+  sp$MS <- do.call(cbind,sp$MS) %>% t()
   remove(list_h5)
 
-  sp$names_acq <- prep.names(sp) %>% apply(2,names.samples)
-
-  # Create MassSpectrum object
+  # create MassSpectrum object ####
   print.h("Create MassSpectrum object")
-  spectra <- apply(sp$MS,1, create_local_MS, xMS = sp$xMS)
+  sp$MS <- apply(sp$MS,1, create_local_MS, xMS = sp$xMS)
 
-  ## smooth spectra
+  # smooth spectra ####
   print.h("Smooth spectra")
   oldw <- getOption("warn")
   options(warn = -1)
-    spectra <- smoothIntensity(spectra,
+    sp$MS <- smoothIntensity(sp$MS,
                              method = "SavitzkyGolay",
                              halfWindowSize = 3)
   options(warn = oldw)
 
-  ## align spectra
+  # align spectra ####
   print.h("Align spectra")
-  spectra <- alignSpectra(spectra, tolerance = 0.02)
-  avgSpectra <- averageMassSpectra(spectra, labels = convertStr2List(sp), method="mean")
+  sp$names_acq <- prep.names(sp) %>% apply(2,names.samples)
+  sp$MS <- alignSpectra(sp$MS, tolerance = 0.02)
+  sp$MS <- averageMassSpectra(sp$MS, labels = convertStr2List(sp), method="mean")
 
-  # peak detection
+  # peak detection ####
   print.h("Peak detection")
-  peaks <- detectPeaks(avgSpectra, method="MAD", halfWindowSize=20, SNR=5)
-  peaks <- binPeaks(peaks, tolerance=0.01)
-  peaks <- MALDIquant::filterPeaks(peaks, minFrequency=0.25)
-  sp$peaks <- intensityMatrix(peaks, avgSpectra)
+  sp$peaks <- detectPeaks(sp$MS, method="MAD", halfWindowSize=20, SNR=5)
+  sp$peaks <- binPeaks(sp$peaks, tolerance=0.01)
+  sp$peaks <- MALDIquant::filterPeaks(sp$peaks, minFrequency=0.25)
+  sp$peaks <- intensityMatrix(sp$peaks, sp$MS)
 
-  sp$MS <- sapply(avgSpectra, mat.spectra)
-  sp$xMS <- sapply(avgSpectra, mass.spectra) %>% rowMeans() %>% round(3)
+  sp$xMS <- sapply(sp$MS, mass.spectra) %>% rowMeans() %>% round(3)
+  sp$MS <- sapply(sp$MS, mat.spectra)
 
   rownames(sp$MS) <- sp$xMS
   colnames(sp$MS) <- unlist(sp$names_acq)
 
+  # export meta folder and finish ####
+  sp$Trecalc <- sp$Tinit
+  sp$workflow <- wdir
+  names(sp$workflow)[[1]] <- "import.h5"
+  sp$wd <- wdir
+
+  sp <- empty.meta(sp)
+  sp <- list.order(sp)
+
   print.h("Import is completed")
   return(sp)
+  # import function is finished ####
 }
 
-#library
+#### meta data ####
+
+# Export a meta folder empty
+empty.meta <- function(L = sp){
+  nb_acq <- length(L$names)
+  ne <- cumsum(L$nbr_sp)
+  ns <- c(1,add(ne,1)[-nb_acq])
+
+  header <- c("names","ID", "nbr_MS", "start", "end", "used", "blank (ID)", "color",
+              "concentration","unit","acq_T0 (ID)", "delta_T (s)", "grp1", "grp2", "...")
+
+  mt <- matrix("", nrow = nb_acq, ncol = length(header)-6) %>%
+    cbind(L$names, 1:nb_acq, L$nbr_sp, ns, ne, rep(TRUE, nb_acq),.) %>%
+    rbind(header,.)
+
+  write.table(mt, file = "meta_empty.csv", sep = ";", dec = ",", row.names = FALSE, col.names = FALSE)
+
+  colnames(mt) <- header
+  mt <- mt[-1, -1]
+  rownames(mt) <- L$names
+
+  mt[, "color"] <- ctrl_color(mt[,"color"])
+
+  L$mt <- list("name" = "import", "meta" = mt)
+  return(L)
+}
+
+# Import of meta data
+import.meta <- function(nm = "meta_empty", L = sp){
+
+  mt <- read.table(paste0(nm,".csv"), sep = ";", dec = ",", header = TRUE, row.names = 1, stringsAsFactors = FALSE)
+  colnames(mt) <- c("ID", "nbr_MS", "start", "end", "used", "blank (ID)", "color",
+                    "concentration","unit","acq_T0 (ID)", "delta_T (s)", "grp1", "grp2", "...")
+  mt <- as.matrix(mt)
+  fmr <- as.logical(mt[,"used"])
+  mt[is.na(mt)==TRUE] <- ""
+  mt[,"used"] <- fmr
+  mt[, "color"] <- ctrl_color(mt[, "color"])
+
+  L$mt <- list("name" = nm, "meta" = mt)
+  L <- wf.update("import.meta",nm, L)
+  return(L)
+}
+
+#### micro-functions ####
+
+#concatenation
+conc.lst <- function(list_n, elem = 1) list_n[[elem]]
+
+#concatenation
+dim.lst <- function(list_n, elem = 1) dim(list_n[[elem]])
+
+#names of acquisition
+prep.names <- function(L){
+  fmr <- log10(L$nbr_sp) %>% floor() %>% add(1)
+  rbind(fmr, L$names, L$nbr_sp)
+}
+
+names.samples <- function(vec)  str_pad(1:vec[3],vec[1], pad = "0") %>% paste(vec[2],.,sep = "_")
+
+convertStr2List <- function(L){
+  plip <- function(vec) return(vec)
+  fmr <- unlist(L$names_acq) %>% lapply(plip)
+  names(fmr) <- unlist(L$names_acq)
+  return(fmr)
+}
+
+#control colo
+ctrl_color <- function(vec_col = mt[,"color"]){
+
+  fmr <- which.na(vec_col == "")
+  if(length(fmr) > 0){
+    vec_col[fmr] <- viridis(length(fmr)) %>% alpha(0.5)
+  }
+
+  fmr <- which(vec_col == "")
+  if(length(fmr) > 0){
+    vec_col[fmr] <- viridis(length(fmr)) %>% alpha(0.5)
+  }
+
+  return(vec_col)
+}
+
+# create Mass Spectrum objet
+create_local_MS <- function(MS, xMS) createMassSpectrum(xMS,MS)
+
+# return to spectra
+mat.spectra <- function(spobj) spobj@intensity
+mass.spectra <- function(spobj) spobj@mass
+
+# retourne l'index valable d'une borne le long d'un vecteur.
+det_c <- function(brn,vec) subtract(vec,brn) %>% sapply(abs) %>% which.min()
+
+# detect length of x mass
+length.xMS <- function(splist) length(splist$xMS)
+
+# print le texte suivi de l'heure
+print.h <- function(txt = "hello there") heure() %>% paste0(txt,", ",.) %>% print()
+
+# donne l'heure
+heure <- function() str_split(Sys.time(),pattern = " ")[[1]][2]
+
+# order the list
+list.order <- function(L = sp){
+  L <- list("MS" = L$MS,
+            "peaks" = L$peaks,
+            "xMS" = L$xMS,
+            "names" = L$names,
+            "wd" = L$wd,
+            "nbr_sp" = L$nbr_sp,
+            "names_acq" = L$names_acq,
+            "Tinit" = L$Tinit,
+            "Trecalc" = L$Trecalc,
+            "workflow" = L$workflow,
+            "mt" = L$mt,
+            "meta" = L$meta)
+}
+
+# named workflow
+name.wf <- function(nwf = "randow", L = sp){
+  fmr <- length(L$workflow)
+  names(L$workflow)[[fmr]] <- nwf
+  return(L)
+}
+
+# update workflow
+wf.update <- function(nm_wf, obj_wf, L = sp){
+  L$workflow <- c(L$workflow, list(obj_wf))
+  L <- name.wf(nm_wf, L)
+  return(L)
+}
+
+#### which pack ####
+
+# equal :
+which.equal <- function(vec,nb) which(vec == nb)
+# retourne la position des elements de vec egaux a nb.
+
+# na :
+which.na <- function(x) which(is.na(x) == TRUE)
+# retourne la position des NA sur un vecteur.
+
+# not na :
+which.not.na <- function(x) which(is.na(x) == FALSE)
+# retourne la position des non-NA sur un vecteur.
+
+# superior :
+which.sup <- function(vec, threshold) return(which(vec > threshold))
+# retourne la position des elements de vec superieur au seuil.
+
+
+#### Library ####
+
 library(tidyverse)
 library(rhdf5)
 library(magrittr)
 library(MALDIquant)
-}
+library(viridis)
 
-######
+#### Begin of test ####
 
+# working directory
   # wd <- "S:/PTR-MS/Magali Proffit/Candice/Lavandes2021/sem23_48h_3series/3x4chb/analyse reduite"
-  # wd <- "C:/Users/huguenin/Documents/R/provoc2/data test/miscalenous" # sans "/" final
-  #
-
+  wd <- "C:/Users/huguenin/Documents/R/provoc2/data test/miscalenous" # sans "/" final
   setwd(wd)
+
+# import
   sp <- import.h5()
+
+# meta
+  sp <- import.meta("meta_1")
+
+# workflow
+  saveRDS(sp$workflow, "workflow.rds")
+  wf <- readRDS("workflow.rds")
+  #   launch.workflow <- function(L){
+  #   for(i in 1:length(L$workflow)){
+  #     do.call(names(L$workflow),c(L$workflow$sample))
+  #   }
+  # }
+  # fmr <- lapply(sp$workflow,names)
+
+# analyse
+
+
 
