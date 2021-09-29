@@ -15,6 +15,57 @@ acq.time <- function(ls.t = ls_h5[[1]]){
   return(eph)
 }
 
+# reinitialise les parametres date et time
+re.init.T.para <- function(L = sp){
+  L$Trecalc$date <- L$Tinit$date
+  L$Trecalc$timing <- L$Tinit$timing
+  L <- wf.update("re.init.T.para","sp", L)
+  return(L)
+}
+
+# calcul les nouveaux date et temps
+re.calc.T.para <- function(L = sp){
+  vec_T0 <- L$mt$meta[,"acq_T0 (ID)"]
+  vec_D <- L$mt$meta[,"delta_T (s)"]
+
+  fmr <- c(which.na(vec_T0),which(vec_T0 == ""))
+  if(length(fmr) > 0) vec_T0[fmr] <- fmr
+
+  fmr <- c(which.na(vec_D), which(vec_D == ""))
+  if(length(fmr) > 0) vec_D[fmr] <- 0
+
+  vec_T0 <- as.numeric(vec_T0)
+  vec_D <- as.numeric(vec_D)
+
+  Di <- L$Tinit$date
+  Dr <- L$Trecalc$date
+  Ti <- L$Tinit$timing
+  Tr <- L$Trecalc$timing
+
+  subtract(Di[[17]][1], Di[[1]][1]) %>% as.numeric()
+
+
+  for(i in 1:length(vec_T0)){
+    # the time between acquisition at switch and Tref
+    fmr <- difftime(Di[[i]][1], Di[[vec_T0[i]]][1], units = "secs")
+
+    # Dref become D0 for acquisition
+    Dr[[i]] <- subtract(Di[[i]],fmr)
+
+    # apply the delta in seconde
+    Dr[[i]] <- add(Dr[[i]],vec_D[i])
+
+    # apply the delta between T0 and Tref
+    Tr[[i]] <- add(Ti[[i]],fmr)
+
+  }
+
+  L$Trecalc$date <- Dr
+  L$Trecalc$timing <- Tr
+  L <- wf.update("re.calc.T.para","sp", L)
+  return(L)
+}
+
 #### Shift of x mass ####
 
 # mass shift
@@ -52,15 +103,15 @@ mass.shift <- function(Li){
 #### Fonction inutile ####
 citation.list <- {list(
   c("Il faut aller trop loin pour decouvrir les limites.", "Joris Huguenin"),
-  c("Les trous dans les pantalons c'est comme les enfants. ca n'arrete pas de grandir", "Joris Huguenin"),
+  c("Les trous dans les pantalons, c'est comme les enfants, ca n'arrete pas de grandir", "Joris Huguenin"),
   c("Dieu, aie pitie de nous, nous sommes a la merci des ingenieurs !", 'Dr.Malcom, Jurassic Park'),
   c("Grab a brush and put on a little make-up.","System of a Down"),
   c("The Sun Machine is Coming Down, and We're Gonna Have a Party.", "David Bowie"),
   c("I'm just a poor boy, I need no sympathy.", "Queen"),
   c("Au village, sans pretention, J'ai mauvaise reputation.","Georges Brassens"),
   c("Debout les gars, reveillez-vous ! On va au bout du monde.","Huges Aufray"),
-  c("Tu dis qu'si les elections ca changeait vraiment la vie
-Y'a un bout d'temps, mon colon, qu'voter ca s'rait interdit","Renaud"),
+  c("Tu dis qu'si les elections ca changeait vraiment la vie \n
+     Y'a un bout d'temps, mon colon, qu'voter ca s'rait interdit","Renaud"),
   c("Ready or not, here I come, you can't hide. Gonna find you and make you want me.","The Fugees"),
   c("Emancipate yourselves from mental slavery.","Bob Marley"),
   c("Parce que c'est notre BROCHEEEET !!!.", "Manuel Macro"),
@@ -97,11 +148,11 @@ Y'a un bout d'temps, mon colon, qu'voter ca s'rait interdit","Renaud"),
   c("Ce n'est pas parce que les choses sont difficiles que nous n'osons pas les faire, c'est parce que nous n'osons pas les faire qu'elles sont difficiles.", "Seneque"),
   c("N'attendez pas d'etre heureux pour sourire. Souriez plutot afin d'etre heureux.", "Edward L. Kramer"),
   c("Si tu fais ce que tu as toujours fait, tu obtiendras ce que tu as toujours obtenu.", "Tony Robbins"),
-  c("Redemarrage de l'evaluation d'une promesse interrompue.", "R peotic warning message"),
+  c("Redemarrage de l'evaluation d'une promesse interrompue.", "R poetic warning message"),
   c("Je suis gentil avec tout le monde, celui qui dit le contraire je lui foutrai mon poing dans la gueule.", "Leo Ferre"),
   c("Le desespoir est une forme superieure de la critique.", "Leo Ferre"),
   c("Les diplomes sont faits pour les gens qui n'ont pas de talent.","Pierre Desproges"),
-  c("Bal tragique a Colombey, un mort","Hara Kiri"),
+  c("Bal tragique a Colombey, un mort.","Hara Kiri"),
   c("Si la matiere grise etait plus rose, le monde aurait moins les idees noires.","Pierre Dac"),
   c("J'ai pris la decision de ne plus etre influencable. Qu'est-ce que vous en pensez ?","Patrick Sebastien"),
   c("Est-il indispensable d'etre cultive quand il suffit de fermer sa gueule pour briller en societe ?","Pierre Desproges"),
@@ -162,7 +213,7 @@ read.h5 <- function(num_fil=1, ll = f_h5){
   dim(all_TPS2) <- c(fmr[1], fmr[2] * fmr[3])
   row.names(all_TPS2) <- act_h5$TPS2$TwInfo
 
-  # Files close
+  # File close
   H5Fclose(act_h5)
 
   # reduction
@@ -212,6 +263,7 @@ import.h5 <- function(wdir = wd){
 
   sp$xMS <- mass.shift(list_h5)
   print.h("Concatene MS")
+
   sp$MS <- list()
   for(i in 1:length(list_h5)){
     sp$MS <- c(sp$MS, list(list_h5[[i]]$MS[1:length(sp$xMS),]))
@@ -219,6 +271,10 @@ import.h5 <- function(wdir = wd){
   }
   sp$MS <- do.call(cbind,sp$MS) %>% t()
   remove(list_h5)
+
+  # size reduction ####
+  print.h("Reduction")
+  sp <- red.xMS(sp)
 
   # create MassSpectrum object ####
   print.h("Create MassSpectrum object")
@@ -241,22 +297,27 @@ import.h5 <- function(wdir = wd){
 
   # peak detection ####
   print.h("Peak detection")
+
   sp$peaks <- detectPeaks(sp$MS, method="MAD", halfWindowSize=20, SNR=5)
   sp$peaks <- binPeaks(sp$peaks, tolerance=0.01)
   sp$peaks <- MALDIquant::filterPeaks(sp$peaks, minFrequency=0.25)
   sp$peaks <- intensityMatrix(sp$peaks, sp$MS)
+  colnames(sp$peaks) <- colnames(sp$peaks) %>% as.numeric() %>% round(3)
 
   sp$xMS <- sapply(sp$MS, mass.spectra) %>% rowMeans() %>% round(3)
   sp$MS <- sapply(sp$MS, mat.spectra)
 
   rownames(sp$MS) <- sp$xMS
   colnames(sp$MS) <- unlist(sp$names_acq)
+  rownames(sp$peaks) <- colnames(sp$MS)
 
   # export meta folder and finish ####
   sp$Trecalc <- sp$Tinit
   sp$workflow <- wdir
   names(sp$workflow)[[1]] <- "import.h5"
   sp$wd <- wdir
+  sp$acq <- 1:length(sp$names)
+  sp$Sacq <- 1:ncol(sp$MS)
 
   sp <- empty.meta(sp)
   sp <- list.order(sp)
@@ -266,6 +327,71 @@ import.h5 <- function(wdir = wd){
   # import function is finished ####
 }
 
+red.xMS <- function(L=sp){
+  maxMS <- apply(L$MS,2,max) # Imax for each mass
+  fmr <- which(maxMS < 500)
+  dMS <- density(maxMS[fmr], bw = 0.001)
+  thr <- dMS$x[which.max(dMS$y)] %>% round(0) %>% multiply_by(2.5) %>% round(0)
+
+  indinf <- which(maxMS < thr) # column where zero mass is superior at threshold
+  nbi <- length(indinf)
+  diffind <- subtract(indinf[-1], indinf[-nbi])
+  fr <- which(diffind > 1)
+  fr_t <- c(fr, fr+1) %>% sort()
+  br <- sapply(-10:10, add, e2 = indinf[fr_t]) %>% as.vector() %>% sort() %>% unique()
+  kp <- which(indinf %in% br)
+  ind_del <- indinf[-kp]
+
+  diffind <- subtract(ind_del[-1], ind_del[-length(ind_del)])
+  fr <- which(diffind > 1)
+  fr_t <- c(fr, fr+1) %>% sort()
+  inull <- ind_del[-fr_t]
+  idel <- ind_del[fr_t]
+
+  L$MS[,idel] <- rep(0,nrow(L$MS))
+
+  {
+  # # graphe de vision
+  # tiff(paste("Densité des masses maximum.tiff"))
+  #  plot(dMS, main="Density",xlim = c(0, thr*2))
+  #  abline(v = thr, lty = 2, lwd = 2, col = "red")
+  #  legend("topright", bty = "n",
+  #         legend = c(paste("threshold = ",round(thr,0)),
+  #                    paste("nbr of mass deleted =", length(ind_del))))
+  # dev.off()
+  #
+  # plot.threshold <- function(br, L= sp, z = c(0,300), ind_d = indinf, ind_k = indinf[kp],inu = inull){
+  #  tiff(paste("Vue des masses supprimées de",br[1],"à",br[2],"Da.tiff"))
+  #    a <- det_c(br[1],L$xMS):det_c(br[2],L$xMS)
+  #    matplot(sp$xMS[a],maxMS[a], type = "l", ylim = z,
+  #            xlab = "m/z (Da)", ylab = "intensité (u.a.)",
+  #            main = "Spectre de l'intensité maximale de chaque masse")
+  #    legend("topleft", bty = "n", lty = 1, col = c("black","blue","red"),
+  #           legend = c("spectre max","masses supprimées", "masses gardées"))
+  #    abline(h = thr, lty = 2, lwd = 0.8)
+  #    b <- det_c(br[1],L$xMS[-inu]):det_c(br[2],L$xMS[-inu])
+  #    matplot(L$xMS[-inu][b], t(L$MS[,-inu][,b]), type = "l", lty = 1,
+  #            col = viridis(n = nrow(L$MS), alpha = 0.2), add = TRUE)
+  #    matplot(L$xMS[ind_d],maxMS[ind_d], type = "l", add = TRUE, lwd = 2, col = "blue")
+  #    matplot(L$xMS[ind_k],maxMS[ind_k], type = "l", lwd = 2, add = TRUE, col = alpha("red",0.5))
+  #  dev.off()
+  # }
+  #
+  # plot.threshold(L = L, br = c(50.9, 51.2))
+  # plot.threshold(L = L, br = c(66.7, 67.4))
+  # plot.threshold(L = L, br = c(64.1, 64.7), z = c(40,150))
+  # plot.threshold(L = L, br = c(236, 238))
+  # plot.threshold(L = L, br = c(340.5, 341.5))
+  #
+  }
+
+  # mise en forme finale
+
+  L$MS <- L$MS[,-inull]
+  L$xMS <- L$xMS[-inull]
+
+  return(L)
+}
 #### meta data ####
 
 # Export a meta folder empty
@@ -297,8 +423,8 @@ empty.meta <- function(L = sp){
 import.meta <- function(nm = "meta_empty", L = sp){
 
   mt <- read.table(paste0(nm,".csv"), sep = ";", dec = ",", header = TRUE, row.names = 1, stringsAsFactors = FALSE)
-  colnames(mt) <- c("ID", "nbr_MS", "start", "end", "used", "blank (ID)", "color",
-                    "concentration","unit","acq_T0 (ID)", "delta_T (s)", "grp1", "grp2", "...")
+  colnames(mt)[1:11] <- c("ID", "nbr_MS", "start", "end", "used", "blank (ID)", "color",
+                    "concentration","unit","acq_T0 (ID)", "delta_T (s)")
   mt <- as.matrix(mt)
   fmr <- as.logical(mt[,"used"])
   mt[is.na(mt)==TRUE] <- ""
@@ -307,10 +433,26 @@ import.meta <- function(nm = "meta_empty", L = sp){
 
   L$mt <- list("name" = nm, "meta" = mt)
   L <- wf.update("import.meta",nm, L)
+
+  L$acq <- as.logical(mt[,"used"]) %>% which.equal(1)
+  s_acq <- as.numeric(mt[,"start"])
+  e_acq <- as.numeric(mt[,"end"])
+
+  L$Sacq <- NULL
+  for(i in L$acq) L$Sacq <- c(L$Sacq, seq(s_acq[i],e_acq[i]))
+
   return(L)
 }
 
 #### micro-functions ####
+
+# print garbage collection
+print.gc <- function(){
+  fmr <- memory.size()
+  gc()
+  paste0("RAM : ",fmr," -> gc -> ", memory.size()) %>% print.h()
+}
+
 
 #concatenation
 conc.lst <- function(list_n, elem = 1) list_n[[elem]]
@@ -337,14 +479,10 @@ convertStr2List <- function(L){
 ctrl_color <- function(vec_col = mt[,"color"]){
 
   fmr <- which.na(vec_col == "")
-  if(length(fmr) > 0){
-    vec_col[fmr] <- viridis(length(fmr)) %>% alpha(0.5)
-  }
+  if(length(fmr) > 0) vec_col[fmr] <- viridis(length(fmr)) %>% alpha(0.5)
 
   fmr <- which(vec_col == "")
-  if(length(fmr) > 0){
-    vec_col[fmr] <- viridis(length(fmr)) %>% alpha(0.5)
-  }
+  if(length(fmr) > 0) vec_col[fmr] <- viridis(length(fmr)) %>% alpha(0.5)
 
   return(vec_col)
 }
@@ -375,6 +513,8 @@ list.order <- function(L = sp){
             "xMS" = L$xMS,
             "names" = L$names,
             "wd" = L$wd,
+            "acq" = L$acq,
+            "Sacq" = L$Sacq,
             "nbr_sp" = L$nbr_sp,
             "names_acq" = L$names_acq,
             "Tinit" = L$Tinit,
@@ -397,6 +537,19 @@ wf.update <- function(nm_wf, obj_wf, L = sp){
   L <- name.wf(nm_wf, L)
   return(L)
 }
+
+
+# Repet meta parameter
+rep_mtm <- function(col.nam, L){
+  fmr <- which(L$mt$meta[,5]=="TRUE") %>% L$mt$meta[.,1] %>% as.numeric()
+  sapply(fmr, rep_mtu, col.nam = col.nam, L = L, simplify = FALSE) %>% unlist()
+}
+# Repet meta parameter of a single aquisition
+rep_mtu <- function(acq, col.nam, L){
+  fmr <- which(col.nam == colnames(L$mt$meta))
+  rep(L$mt$meta[acq,fmr], L$nbr_sp[acq])
+}
+
 
 #### which pack ####
 
@@ -424,19 +577,21 @@ library(rhdf5)
 library(magrittr)
 library(MALDIquant)
 library(viridis)
+library(rnirs)
 
 #### Begin of test ####
 
 # working directory
   # wd <- "S:/PTR-MS/Magali Proffit/Candice/Lavandes2021/sem23_48h_3series/3x4chb/analyse reduite"
   wd <- "C:/Users/huguenin/Documents/R/provoc2/data test/miscalenous" # sans "/" final
+  #wd <- "S:/PTR-MS/Laurent Dormont/Caroline/seq_cancer"
   setwd(wd)
 
 # import
-  sp <- import.h5()
+  sp <- import.h5(wd)
 
 # meta
-  sp <- import.meta("meta_1")
+  sp <- import.meta("meta_2")
 
 # workflow
   saveRDS(sp$workflow, "workflow.rds")
@@ -448,7 +603,164 @@ library(viridis)
   # }
   # fmr <- lapply(sp$workflow,names)
 
+# time gestion
+  sp <- re.calc.T.para(sp)
+  sp <- re.init.T.para(sp)
+
 # analyse
 
+search.peak <- function(mp = 137, L = sp){
+  pkl <- colnames(L$peaks)
+  pk_mean <- colMeans(L$peaks)
+  fmr <- which((pkl > (mp-0.5))&(pkl < (mp+0.5)))
+  pk_mat <- names(pk_mean)[fmr] %>% as.numeric() %>% rbind(pk_mean[fmr],fmr)
+  row.names(pk_mat) <- c("mass","mean intensity", "index")
+  colnames(pk_mat) <- rep(" ",ncol(pk_mat))
+  return(pk_mat)
+}
 
 
+
+#### PCA
+PCA_plot_scores <- function(MSpca,PCx,PCy,L){
+
+  ax.pca <- c(PCx, PCy)
+
+  vnames <- L$names_acq[L$Sacq]
+  if(length(vnames) > 5){
+    l_ech <- length(vnames)
+    titre <- c("PCA/PC",ax.pca[1],ax.pca[2],"of",vnames[1],"to",vnames[l_ech]) %>% str_flatten("_") %>% paste0(".tiff")
+    legende <- c(vnames[1:3], vnames[(l_ech-2):l_ech])
+    p_ch <- c(NA, rep(16,6))
+    col_l <- c(NA, alpha(MSpca$mt_col[c(1:3,(l_ech-2):l_ech)],0.5))
+  }else{
+    titre <- c("PCA/PC",ax.pca[1],ax.pca[2],"of",vnames) %>% str_flatten("_") %>% paste0(".tiff")
+    legende <- c(vnames)
+    p_ch <- c(NA, rep(16,length(vnames)))
+    col_l <- c(NA, alpha(MSpca$mt_col,0.5))
+  }
+
+  tiff(file = titre, width = 680, height = 450,units = "px")
+  par(mar = c(5,5,1,15), cex.main=2, cex.lab = 2, cex.axis = 2,mgp = c(3.5,1.5,0),xpd = FALSE)
+  plot(MSpca$Tr[,ax.pca[1]], MSpca$Tr[,ax.pca[2]], pch = 16, col = alpha(MSpca$mt_col,0.5),
+       xlab = paste("PC",ax.pca[1],"(",MSpca$EV[ax.pca[1]],"%)"),
+       ylab = paste("PC",ax.pca[2],"(",MSpca$EV[ax.pca[2]],"%)"))
+  abline(h =0, v = 0, lty = 2)
+
+
+  legend("topright", bty = "n", cex = 1.5, xpd = NA, inset = c(-0.5,0),
+         legend = c("Sample(s) :",legende) , pch = p_ch, col = col_l, pt.cex = 1)
+  dev.off()
+}
+# plot des scores (mt$PCx et mt$PCy)
+
+PCA_plot_loadings <- function(pc, MSpca, L){
+
+  vnames <- L$names_acq[L$Sacq]
+  if(length(vnames) > 5){
+    l_ech <- length(vnames)
+    titre <- c("PCA/Loading_PC",pc,"of",vnames[1],"to",vnames[l_ech]) %>% str_flatten("_") %>% paste0(".tiff")
+    legende <- c(vnames[1:3], vnames[(l_ech-2):l_ech])
+    p_ch <- c(NA, rep(16,6))
+    col_l <- c(NA, alpha(MSpca$mt_col[c(1:3,(l_ech-2):l_ech)],0.5))
+  }else{
+    titre <- c("PCA/Loading_PC",pc,"of",vnames) %>% str_flatten("_") %>% paste0(".tiff")
+    legende <- c(vnames)
+    p_ch <- c(NA, rep(16,length(vnames)))
+    col_l <- c(NA, alpha(MSpca$mt_col,0.5))
+  }
+
+  tiff(file = titre, width = 800, height = 350,units = "px")
+  par(mar = c(5,5,2.5,0.2), cex.main=2, cex.lab = 2, cex.axis = 2,mgp = c(3.5,1.5,0),xpd = FALSE)
+
+  xpk <- names(MSpca$xmeans) %>% as.numeric()
+
+  matplot(xpk, MSpca$P[,pc], type = "l",
+          # xlim = c(mt$pca_plot_xmin, mt$pca_plot_xmax),
+          # ylim = c(min(MSpca$P[,pc]), max(MSpca$P[,pc]))*1.2,
+          xlab = "m/z", ylab = "Relative intensity (u.a.)",
+          main = paste0("loadings of PC", pc, " (", MSpca$EV[pc], " %)"))
+  dev.off()
+}
+
+
+# PCA ####
+if(mt$PCA == TRUE){
+  PCA_npc = 7
+
+  if(("PCA" %in% dir())==FALSE){
+    dir.create("PCA")
+  }
+
+  if(mt$PCA_AUC == TRUE){
+    pca_mat <- sp$peaks[L$Sacq,]
+
+    fmr <- apply(pca_mat,2, sd)
+    fmr <- which(fmr > 0)
+    pca_mat <- pca_mat[,fmr]
+
+    xpk <- colnames(pca_mat) %>% as.numeric()
+  }else{
+    # pca_mat <- sp$MS[coor_mt(mt$acq),]
+    # sp$xMS_PCA <- sp$xMS
+  }
+
+  # selection de variables
+  matcor <- cor(pca_mat)
+  estim_var <- function(matcor, thr){
+    rep <- NULL
+    fmr <- 1
+    for(i in 1:(ncol(matcor)-1)){
+      if(i >= fmr){
+        rep <- c(rep, fmr)
+        fmr <- min(which(matcor[i,i:ncol(matcor)] < thr), na.rm = TRUE)+i-1
+      }
+    }
+    return(rep)
+  }
+  varsel95 <- estim_var(matcor, 0.95)
+  varsel99 <- estim_var(matcor, 0.99)
+       #stepAIC()
+
+  MSpca <- rnirs::pca(pca_mat[,varsel99], ncomp = PCA_npc)
+
+  MSpca$EV <- MSpca$explvar[,3] %>% multiply_by(100) %>% round(2)
+  MSpca$mt_col <- rep_mtm("color", L)
+
+  if(mt$PCA_report == TRUE){
+    titrepdf <-  dir("PCA") %>% grep("rapport_pca",.) %>% length() %>%
+      add(1) %>% paste0(sp$h5$wd,"/PCA/rapport_pca",.,".pdf")
+    rmarkdown::render("S:/PTR-MS/Rpackages/provoc/R/rapport_pca.Rmd", output_file = titrepdf)
+  }
+
+  if(mt$PCA_plot_scores == TRUE){
+
+    npc_plot <- seq(1:PCA_npc)
+
+    for(i in 1:(PCA_npc-1)){
+      PCx <- i
+      for(j in (i+1):PCA_npc){
+        PCy <- j
+        PCA_plot_scores(MSpca,PCx,PCy,L)
+      }
+    }
+  }
+
+  if(mt$PCA_plot_loading == TRUE){
+  # if(mt$PCA_plot_loading_PC[1] == "all"){
+  #   mt$PCA_plot_loading_PC <- seq(1:mt$PCA_npc)
+  # }
+  #
+  npc_plot <- PCA_npc
+  for(i in 1:PCA_npc) PCA_plot_loadings(pc = i, MSpca, L)
+
+  }
+}
+
+
+###########################
+
+br <- c(det_c(251.5,sp$xMS):det_c(252.5,sp$xMS))
+tiff("test.tiff")
+matplot(sp$xMS[br],sp$MS[br,], type = "l", lty = 1, col = viridis(n = ncol(sp$MS), alpha = 0.2), ylim=c(0,200))
+dev.off()
