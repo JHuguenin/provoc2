@@ -3,6 +3,14 @@
 #### Gestion of time ####
 
 # acq.time
+#' Title
+#'
+#' @param ls.t
+#'
+#' @return
+#' @export
+#'
+#' @examples
 acq.time <- function(ls.t = ls_h5[[1]]){
   oldw <- getOption("warn")
   options(warn = -1)
@@ -16,6 +24,14 @@ acq.time <- function(ls.t = ls_h5[[1]]){
 }
 
 # reinitialise les parametres date et time
+#' Title
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 re.init.T.para <- function(L = sp){
   L$Trecalc$date <- L$Tinit$date
   L$Trecalc$timing <- L$Tinit$timing
@@ -24,6 +40,14 @@ re.init.T.para <- function(L = sp){
 }
 
 # calcul les nouveaux date et temps
+#' Title
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 re.calc.T.para <- function(L = sp){
   vec_T0 <- L$mt$meta[,"acq_T0 (ID)"]
   vec_D <- L$mt$meta[,"delta_T (s)"]
@@ -69,6 +93,14 @@ re.calc.T.para <- function(L = sp){
 #### Shift of x mass ####
 
 # mass shift
+#' Title
+#'
+#' @param Li
+#'
+#' @return
+#' @export
+#'
+#' @examples
 mass.shift <- function(Li){
   min_xMS <- lapply(Li, length.xMS) %>% unlist()
 
@@ -161,6 +193,15 @@ citation.list <- {list(
 #### Gestion of name ####
 
 # List of names
+
+#' Title
+#'
+#' @param f_h5
+#'
+#' @return
+#' @export
+#'
+#' @examples
 nm.ls <- function(f_h5){
   nm_h5 <- str_remove_all(dir("h5")[f_h5],"_20......_......")
   nm_h5 <- str_remove_all(nm_h5,"20......_......_")
@@ -183,6 +224,16 @@ nm.ls <- function(f_h5){
 #### Importation ####
 
 # read.h5
+
+#' Title
+#'
+#' @param num_fil
+#' @param ll
+#'
+#' @return
+#' @export
+#'
+#' @examples
 read.h5 <- function(num_fil=1, ll = f_h5){
 
   # find the name of file
@@ -234,6 +285,14 @@ read.h5 <- function(num_fil=1, ll = f_h5){
        "meta" = all_TPS2)
 }
 
+#' Title
+#'
+#' @param wdir
+#'
+#' @return
+#' @export
+#'
+#' @examples
 import.h5 <- function(wdir = wd){
 
   if(("Figures" %in% dir())==FALSE){
@@ -327,6 +386,14 @@ import.h5 <- function(wdir = wd){
   # import function is finished ####
 }
 
+#' Title
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 red.xMS <- function(L=sp){
   maxMS <- apply(L$MS,2,max) # Imax for each mass
   fmr <- which(maxMS < 500)
@@ -392,9 +459,19 @@ red.xMS <- function(L=sp){
 
   return(L)
 }
+
 #### meta data ####
 
 # Export a meta folder empty
+
+#' Title
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 empty.meta <- function(L = sp){
   nb_acq <- length(L$names)
   ne <- cumsum(L$nbr_sp)
@@ -420,6 +497,16 @@ empty.meta <- function(L = sp){
 }
 
 # Import of meta data
+
+#' Title
+#'
+#' @param nm
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 import.meta <- function(nm = "meta_empty", L = sp){
 
   mt <- read.table(paste0(nm,".csv"), sep = ";", dec = ",", header = TRUE, row.names = 1, stringsAsFactors = FALSE)
@@ -447,6 +534,13 @@ import.meta <- function(nm = "meta_empty", L = sp){
 #### micro-functions ####
 
 # print garbage collection
+
+#' Title
+#'
+#' @return
+#' @export
+#'
+#' @examples
 print.gc <- function(){
   fmr <- memory.size()
   gc()
@@ -460,6 +554,15 @@ conc.lst <- function(list_n, elem = 1) list_n[[elem]]
 dim.lst <- function(list_n, elem = 1) dim(list_n[[elem]])
 
 #names of acquisition
+
+#' Title
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 prep.names <- function(L){
   fmr <- log10(L$nbr_sp) %>% floor() %>% add(1)
   rbind(fmr, L$names, L$nbr_sp)
@@ -467,6 +570,14 @@ prep.names <- function(L){
 
 names.samples <- function(vec)  str_pad(1:vec[3],vec[1], pad = "0") %>% paste(vec[2],.,sep = "_")
 
+#' Title
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 convertStr2List <- function(L){
   plip <- function(vec) return(vec)
   fmr <- unlist(L$names_acq) %>% lapply(plip)
@@ -475,6 +586,15 @@ convertStr2List <- function(L){
 }
 
 #control colo
+
+#' Title
+#'
+#' @param vec_col
+#'
+#' @return
+#' @export
+#'
+#' @examples
 ctrl_color <- function(vec_col = mt[,"color"]){
 
   fmr <- which.na(vec_col == "")
@@ -503,12 +623,32 @@ length.xMS <- function(splist) length(splist$xMS)
 print.h <- function(txt = "hello there") heure() %>% paste0(txt,", ",.) %>% print()
 
 # trouve les pics proches
+
+#' Title
+#'
+#' @param pk_x
+#' @param mat
+#' @param w.sub
+#'
+#' @return
+#' @export
+#'
+#' @examples
 pk.red <- function(pk_x = pk_max[1,1], mat = pk_max, w.sub = 4){
   fmr <- subtract(mat[1,],pk_x) %>% abs() %>% multiply_by(-1) %>% which.sup(-(w.sub+1))
   return(fmr[which.max(mat[2,fmr])])
 }
 
 # list des peaks principaux
+
+#' Title
+#'
+#' @param pk_mat
+#'
+#' @return
+#' @export
+#'
+#' @examples
 pk.short <- function(pk_mat = L$peaks){
   pk_max <- colnames(pk_mat) %>% as.numeric() %>% rbind(apply(pk_mat,2,max))
   fmr <- sapply(pk_max[1,], pk.red, mat = pk_max, w.sub = 4) %>% unique() %>% sort()
@@ -521,6 +661,15 @@ pk.short <- function(pk_mat = L$peaks){
 heure <- function() str_split(Sys.time(),pattern = " ")[[1]][2]
 
 # order the list
+
+#' Title
+#'
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 list.order <- function(L = sp){
   L <- list("MS" = L$MS,
             "peaks" = L$peaks,
@@ -539,6 +688,16 @@ list.order <- function(L = sp){
 }
 
 # named workflow
+
+#' Title
+#'
+#' @param nwf
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 name.wf <- function(nwf = "randow", L = sp){
   fmr <- length(L$workflow)
   names(L$workflow)[[fmr]] <- nwf
@@ -546,6 +705,17 @@ name.wf <- function(nwf = "randow", L = sp){
 }
 
 # update workflow
+
+#' Title
+#'
+#' @param nm_wf
+#' @param obj_wf
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 wf.update <- function(nm_wf, obj_wf, L = sp){
   L$workflow <- c(L$workflow, list(obj_wf))
   L <- name.wf(nm_wf, L)
@@ -553,24 +723,66 @@ wf.update <- function(nm_wf, obj_wf, L = sp){
 }
 
 # Repet meta parameter
+
+#' Title
+#'
+#' @param col.nam
+#' @param L
+#' @param sel
+#'
+#' @return
+#' @export
+#'
+#' @examples
 rep_mtm <- function(col.nam, L, sel = "acq"){
   fmr <- L$acq
   if(sel == "all") fmr <- as.numeric(L$mt$meta[,"ID"])
   sapply(fmr, rep_mtu, col.nam = col.nam, L = L, simplify = FALSE) %>% unlist()
 }
+
 # Repet meta parameter of a single aquisition
+
+#' Title
+#'
+#' @param acq
+#' @param col.nam
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 rep_mtu <- function(acq, col.nam, L){
   fmr <- which(col.nam == colnames(L$mt$meta))
   rep(L$mt$meta[acq,fmr], L$nbr_sp[acq])
 }
 
 # arrondi a la dizaine inferieure.
+
+#' Title
+#'
+#' @param x
+#'
+#' @return
+#' @export
+#'
+#' @examples
 dizaine <- function(x){
   eph <- log(x,10) %>% floor() %>% multiply_by(10)
   divide_by(x,eph) %>% floor() %>% multiply_by(eph)
 }
 
 # search all peak in accord to a mass number
+
+#' Title
+#'
+#' @param ma
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 M.Z <- function(ma,L=sp){
   vec_pk <- colnames(L$peaks) %>% as.numeric()
   fmr <- NULL
@@ -579,6 +791,16 @@ M.Z <- function(ma,L=sp){
 }
 
 # return index of spectra for each acquistion
+
+#' Title
+#'
+#' @param n_acq
+#' @param L
+#'
+#' @return
+#' @export
+#'
+#' @examples
 ind.acq <- function(n_acq,L){
   fmr <- NULL
   mat_mt <- cbind(as.numeric(L$mt$meta[,"start"]),
@@ -712,6 +934,20 @@ fx.spectra <- function(sel_sp = sp$mt$meta[sp$acq,"end"], pkm = 59, pkM = 205,
 
 #### Plots ####
 
+#' Title
+#'
+#' @param M_num
+#' @param each_mass
+#' @param group
+#' @param graph_type
+#' @param L
+#' @param Y_exp
+#' @param time_format
+#'
+#' @return
+#' @export
+#'
+#' @examples
 monitor_plot_AUC <- function(M_num = M.Z(c(59, 137)), each_mass = TRUE,
                              group = FALSE, graph_type = "dy", L = sp,
                              Y_exp = FALSE, time_format = "date"){
@@ -814,6 +1050,18 @@ monitor_plot_AUC <- function(M_num = M.Z(c(59, 137)), each_mass = TRUE,
   }
 }
 
+#' Title
+#'
+#' @param L
+#' @param titre
+#' @param acq
+#' @param MA
+#' @param VP
+#'
+#' @return
+#' @export
+#'
+#' @examples
 fx.cinetic.plot <- function(L, titre, acq = ind_PK, MA = ma, VP = vp){
   # index for peaks and acquisitions
   ind_pk <- which(colnames(L$peaks) %in% MA)
@@ -919,6 +1167,18 @@ fx.cinetic.plot <- function(L, titre, acq = ind_PK, MA = ma, VP = vp){
   dev.off()
 }
 
+#' Title
+#'
+#' @param L
+#' @param titre
+#' @param acq
+#' @param MA
+#' @param VP
+#'
+#' @return
+#' @export
+#'
+#' @examples
 dy.cinetic.plot <- function(L, titre, acq = ind_PK, MA = ma, VP = vp){
   # index for peaks and acquisitions
   ind_pk <- which(colnames(L$peaks) %in% MA)
@@ -999,6 +1259,18 @@ dy.cinetic.plot <- function(L, titre, acq = ind_PK, MA = ma, VP = vp){
   }
 }
 
+#' Title
+#'
+#' @param ac
+#' @param ipk
+#' @param La
+#' @param Li
+#' @param vp
+#'
+#' @return
+#' @export
+#'
+#' @examples
 dy.mat.pk <- function(ac = acq, ipk = ind_pk, La = List_abs, Li = L, vp = VP){
 
   if(vp$grp == FALSE) nid <- rownames(Li$mt$meta)[ac]
@@ -1023,212 +1295,3 @@ library(rnirs)
 library(dygraphs)
 library(xts)
 
-#### Begin of test ####
-
-# working directory
-  # wd <- "S:/PTR-MS/Magali Proffit/Candice/Lavandes2021/sem23_48h_3series/3x4chb/analyse reduite"
-  wd <- "C:/Users/huguenin/Documents/R/provoc2/data test/miscalenous" # sans "/" final
-  #wd <- "S:/PTR-MS/Laurent Dormont/Caroline/seq_cancer"
-  setwd(wd)
-
-# import
-  sp <- import.h5(wd)
-
-# meta
-  sp <- import.meta("meta_1")
-
-# workflow
-  saveRDS(sp$workflow, "workflow.rds")
-  wf <- readRDS("workflow.rds")
-  #   launch.workflow <- function(L){
-  #   for(i in 1:length(L$workflow)){
-  #     do.call(names(L$workflow),c(L$workflow$sample))
-  #   }
-  # }
-  # fmr <- lapply(sp$workflow,names)
-
-# time gestion
-  sp <- re.calc.T.para(sp)
-  sp <- re.init.T.para(sp)
-
-# spectra plot
-  # a dynamic plot :
-  dy.spectra(sel_sp = sp$mt$meta[sp$acq,"end"], new_color = FALSE)
-  # a standart plot :
-  fx.spectra(sel_sp = sp$mt$meta[sp$acq,"end"], pkm = 137, pkM = 137, leg = "l")
-  fx.spectra(sel_sp = 1, pkm = 59, pkM = 150)
-
-# kinetic plot
-  monitor_plot_AUC(M_num = c(69.055, 205.158, 157.021),
-                   each_mass = FALSE,
-                   group = "grp1",
-                   graph_type = "dy",
-                   L = sp,
-                   Y_exp = FALSE,
-                   time_format = "date")
-
-  # Liste des variables :
-  # M_num         les masses analysees. M.Z(c(69, 205, 157)) ou c(69.055, 205.158, 157.021)
-  # each_mass     un graphe pour chaque masse ou non. Logical TRUE or FALSE
-  # group         groupe avec le nom de la colonne en argument. Ex : "grp1". Or FALSE
-  # graph_type    choisi soit des graphe fixe "fx" au format tiff soit des graphe dynamique "dy" au format html
-  # Y_exp         L'ordonnée exponentielle. Logical. TRUE or FALSE
-  # time_format   L'abscisse est une duree ("time") ou une date ("date").
-
-# analyse
-
-search.peak <- function(mp = 137, L = sp){
-  pkl <- colnames(L$peaks)
-  pk_mean <- colMeans(L$peaks)
-  fmr <- which((pkl > (mp-0.5))&(pkl < (mp+0.5)))
-  pk_mat <- names(pk_mean)[fmr] %>% as.numeric() %>% rbind(pk_mean[fmr],fmr)
-  row.names(pk_mat) <- c("mass","mean intensity", "index")
-  colnames(pk_mat) <- rep(" ",ncol(pk_mat))
-  return(pk_mat)
-}
-
-
-
-#### PCA
-PCA_plot_scores <- function(MSpca,PCx,PCy,L){
-
-  ax.pca <- c(PCx, PCy)
-
-  vnames <- L$names_acq[L$Sacq]
-  if(length(vnames) > 5){
-    l_ech <- length(vnames)
-    titre <- c("PCA/PC",ax.pca[1],ax.pca[2],"of",vnames[1],"to",vnames[l_ech]) %>% str_flatten("_") %>% paste0(".tiff")
-    legende <- c(vnames[1:3], vnames[(l_ech-2):l_ech])
-    p_ch <- c(NA, rep(16,6))
-    col_l <- c(NA, alpha(MSpca$mt_col[c(1:3,(l_ech-2):l_ech)],0.5))
-  }else{
-    titre <- c("PCA/PC",ax.pca[1],ax.pca[2],"of",vnames) %>% str_flatten("_") %>% paste0(".tiff")
-    legende <- c(vnames)
-    p_ch <- c(NA, rep(16,length(vnames)))
-    col_l <- c(NA, alpha(MSpca$mt_col,0.5))
-  }
-
-  tiff(file = titre, width = 680, height = 450,units = "px")
-  par(mar = c(5,5,1,15), cex.main=2, cex.lab = 2, cex.axis = 2,mgp = c(3.5,1.5,0),xpd = FALSE)
-  plot(MSpca$Tr[,ax.pca[1]], MSpca$Tr[,ax.pca[2]], pch = 16, col = alpha(MSpca$mt_col,0.5),
-       xlab = paste("PC",ax.pca[1],"(",MSpca$EV[ax.pca[1]],"%)"),
-       ylab = paste("PC",ax.pca[2],"(",MSpca$EV[ax.pca[2]],"%)"))
-  abline(h =0, v = 0, lty = 2)
-
-
-  legend("topright", bty = "n", cex = 1.5, xpd = NA, inset = c(-0.5,0),
-         legend = c("Sample(s) :",legende) , pch = p_ch, col = col_l, pt.cex = 1)
-  dev.off()
-}
-# plot des scores (mt$PCx et mt$PCy)
-
-PCA_plot_loadings <- function(pc, MSpca, L){
-
-  vnames <- L$names_acq[L$Sacq]
-  if(length(vnames) > 5){
-    l_ech <- length(vnames)
-    titre <- c("PCA/Loading_PC",pc,"of",vnames[1],"to",vnames[l_ech]) %>% str_flatten("_") %>% paste0(".tiff")
-    legende <- c(vnames[1:3], vnames[(l_ech-2):l_ech])
-    p_ch <- c(NA, rep(16,6))
-    col_l <- c(NA, alpha(MSpca$mt_col[c(1:3,(l_ech-2):l_ech)],0.5))
-  }else{
-    titre <- c("PCA/Loading_PC",pc,"of",vnames) %>% str_flatten("_") %>% paste0(".tiff")
-    legende <- c(vnames)
-    p_ch <- c(NA, rep(16,length(vnames)))
-    col_l <- c(NA, alpha(MSpca$mt_col,0.5))
-  }
-
-  tiff(file = titre, width = 800, height = 350,units = "px")
-  par(mar = c(5,5,2.5,0.2), cex.main=2, cex.lab = 2, cex.axis = 2,mgp = c(3.5,1.5,0),xpd = FALSE)
-
-  xpk <- names(MSpca$xmeans) %>% as.numeric()
-
-  matplot(xpk, MSpca$P[,pc], type = "l",
-          # xlim = c(mt$pca_plot_xmin, mt$pca_plot_xmax),
-          # ylim = c(min(MSpca$P[,pc]), max(MSpca$P[,pc]))*1.2,
-          xlab = "m/z", ylab = "Relative intensity (u.a.)",
-          main = paste0("loadings of PC", pc, " (", MSpca$EV[pc], " %)"))
-  dev.off()
-}
-
-
-# PCA ####
-if(mt$PCA == TRUE){
-  PCA_npc = 7
-
-  if(("PCA" %in% dir())==FALSE){
-    dir.create("PCA")
-  }
-
-  if(mt$PCA_AUC == TRUE){
-    pca_mat <- sp$peaks[L$Sacq,]
-
-    fmr <- apply(pca_mat,2, sd)
-    fmr <- which(fmr > 0)
-    pca_mat <- pca_mat[,fmr]
-
-    xpk <- colnames(pca_mat) %>% as.numeric()
-  }else{
-    # pca_mat <- sp$MS[coor_mt(mt$acq),]
-    # sp$xMS_PCA <- sp$xMS
-  }
-
-  # selection de variables
-  matcor <- cor(pca_mat)
-  estim_var <- function(matcor, thr){
-    rep <- NULL
-    fmr <- 1
-    for(i in 1:(ncol(matcor)-1)){
-      if(i >= fmr){
-        rep <- c(rep, fmr)
-        fmr <- min(which(matcor[i,i:ncol(matcor)] < thr), na.rm = TRUE)+i-1
-      }
-    }
-    return(rep)
-  }
-  varsel95 <- estim_var(matcor, 0.95)
-  varsel99 <- estim_var(matcor, 0.99)
-       #stepAIC()
-
-  MSpca <- rnirs::pca(pca_mat[,varsel99], ncomp = PCA_npc)
-
-  MSpca$EV <- MSpca$explvar[,3] %>% multiply_by(100) %>% round(2)
-  MSpca$mt_col <- rep_mtm("color", L)
-
-  if(mt$PCA_report == TRUE){
-    titrepdf <-  dir("PCA") %>% grep("rapport_pca",.) %>% length() %>%
-      add(1) %>% paste0(sp$h5$wd,"/PCA/rapport_pca",.,".pdf")
-    rmarkdown::render("S:/PTR-MS/Rpackages/provoc/R/rapport_pca.Rmd", output_file = titrepdf)
-  }
-
-  if(mt$PCA_plot_scores == TRUE){
-
-    npc_plot <- seq(1:PCA_npc)
-
-    for(i in 1:(PCA_npc-1)){
-      PCx <- i
-      for(j in (i+1):PCA_npc){
-        PCy <- j
-        PCA_plot_scores(MSpca,PCx,PCy,L)
-      }
-    }
-  }
-
-  if(mt$PCA_plot_loading == TRUE){
-  # if(mt$PCA_plot_loading_PC[1] == "all"){
-  #   mt$PCA_plot_loading_PC <- seq(1:mt$PCA_npc)
-  # }
-  #
-  npc_plot <- PCA_npc
-  for(i in 1:PCA_npc) PCA_plot_loadings(pc = i, MSpca, L)
-
-  }
-}
-
-
-###########################
-
-br <- c(det_c(251.5,sp$xMS):det_c(252.5,sp$xMS))
-tiff("test.tiff")
-matplot(sp$xMS[br],sp$MS[br,], type = "l", lty = 1, col = viridis(n = ncol(sp$MS), alpha = 0.2), ylim=c(0,200))
-dev.off()
