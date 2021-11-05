@@ -34,33 +34,33 @@ re.calc.T.para <- function(L = sp){
   fmr <- c(which.na(vec_D), which(vec_D == ""))
   if(length(fmr) > 0) vec_D[fmr] <- 0
 
+  # pour le temps
   vec_T0 <- as.numeric(vec_T0)
-  vec_D <- as.numeric(vec_D)
-
-  Di <- L$Tinit$date
-  Dr <- L$Trecalc$date
   Ti <- L$Tinit$timing
   Tr <- L$Trecalc$timing
 
-  subtract(Di[[17]][1], Di[[1]][1]) %>% as.numeric()
-
+  # pour la date
+  # vec_D <- as.numeric(vec_D)
+  # Di <- L$Tinit$date
+  # Dr <- L$Trecalc$date
+  # subtract(Di[[17]][1], Di[[1]][1]) %>% as.numeric()
 
   for(i in 1:length(vec_T0)){
     # the time between acquisition at switch and Tref
     fmr <- difftime(Di[[i]][1], Di[[vec_T0[i]]][1], units = "secs")
 
-    # Dref become D0 for acquisition
-    Dr[[i]] <- subtract(Di[[i]],fmr)
-
-    # apply the delta in seconde
-    Dr[[i]] <- add(Dr[[i]],vec_D[i])
-
     # apply the delta between T0 and Tref
     Tr[[i]] <- add(Ti[[i]],fmr)
 
+    # # Dref become D0 for acquisition
+    # Dr[[i]] <- subtract(Di[[i]],fmr)
+    #
+    # # apply the delta in seconde
+    # Dr[[i]] <- add(Dr[[i]],vec_D[i])
   }
 
-  L$Trecalc$date <- Dr
+  # L$Trecalc$date <- Dr
+  L$Trecalc$date <- L$Tinit$date
   L$Trecalc$timing <- Tr
   L <- wf.update("re.calc.T.para","sp", L)
   return(L)
@@ -453,7 +453,6 @@ print.gc <- function(){
   paste0("RAM : ",fmr," -> gc -> ", memory.size()) %>% print.h()
 }
 
-
 #concatenation
 conc.lst <- function(list_n, elem = 1) list_n[[elem]]
 
@@ -503,6 +502,21 @@ length.xMS <- function(splist) length(splist$xMS)
 # print le texte suivi de l'heure
 print.h <- function(txt = "hello there") heure() %>% paste0(txt,", ",.) %>% print()
 
+# trouve les pics proches
+pk.red <- function(pk_x = pk_max[1,1], mat = pk_max, w.sub = 4){
+  fmr <- subtract(mat[1,],pk_x) %>% abs() %>% multiply_by(-1) %>% which.sup(-(w.sub+1))
+  return(fmr[which.max(mat[2,fmr])])
+}
+
+# list des peaks principaux
+pk.short <- function(pk_mat = L$peaks){
+  pk_max <- colnames(pk_mat) %>% as.numeric() %>% rbind(apply(pk_mat,2,max))
+  fmr <- sapply(pk_max[1,], pk.red, mat = pk_max, w.sub = 4) %>% unique() %>% sort()
+  pk_mat <- pk_max[,fmr]
+  rownames(pk_mat) <- c("m/z","int")
+  return(pk_mat)
+}
+
 # donne l'heure
 heure <- function() str_split(Sys.time(),pattern = " ")[[1]][2]
 
@@ -538,10 +552,10 @@ wf.update <- function(nm_wf, obj_wf, L = sp){
   return(L)
 }
 
-
 # Repet meta parameter
-rep_mtm <- function(col.nam, L){
-  fmr <- which(L$mt$meta[,5]=="TRUE") %>% L$mt$meta[.,1] %>% as.numeric()
+rep_mtm <- function(col.nam, L, sel = "acq"){
+  fmr <- L$acq
+  if(sel == "all") fmr <- as.numeric(L$mt$meta[,"ID"])
   sapply(fmr, rep_mtu, col.nam = col.nam, L = L, simplify = FALSE) %>% unlist()
 }
 # Repet meta parameter of a single aquisition
@@ -550,6 +564,28 @@ rep_mtu <- function(acq, col.nam, L){
   rep(L$mt$meta[acq,fmr], L$nbr_sp[acq])
 }
 
+# arrondi a la dizaine inferieure.
+dizaine <- function(x){
+  eph <- log(x,10) %>% floor() %>% multiply_by(10)
+  divide_by(x,eph) %>% floor() %>% multiply_by(eph)
+}
+
+# search all peak in accord to a mass number
+M.Z <- function(ma,L=sp){
+  vec_pk <- colnames(L$peaks) %>% as.numeric()
+  fmr <- NULL
+  for(maz in ma) fmr <- c(fmr, which((vec_pk < maz + 0.5)&(vec_pk > maz - 0.5)))
+  return(vec_pk[fmr])
+}
+
+# return index of spectra for each acquistion
+ind.acq <- function(n_acq,L){
+  fmr <- NULL
+  mat_mt <- cbind(as.numeric(L$mt$meta[,"start"]),
+                  as.numeric(L$mt$meta[,"end"]))
+  for(i in n_acq) fmr <- c(fmr, mat_mt[i,1]:mat_mt[i,2])
+  return(fmr)
+}
 
 #### which pack ####
 
@@ -569,8 +605,414 @@ which.not.na <- function(x) which(is.na(x) == FALSE)
 which.sup <- function(vec, threshold) return(which(vec > threshold))
 # retourne la position des elements de vec superieur au seuil.
 
+#### Plot ###
+# Plot spectra dynamic
+dy.spectra <- function(sel_sp = sp$mt$meta[sp$acq,"end"], L = sp, new_color = FALSE){
+  if(is.character(sel_sp) == TRUE) sel_sp <- as.numeric(sel_sp)
+  if(length(sel_sp) > 30) print("Caution /!\ The number of spectra is too big. Select less spectra.")
+  if(length(sel_sp) <=30){
 
-#### Library ####
+    sp_sel <- L$MS[,sel_sp]
+
+    if(new_color == TRUE) dy_color <- viridis(length(sel_sp),alpha = 0.8)
+    if(new_color == FALSE) dy_color <- rep_mtm("color", L, sel = "all")[sel_sp]
+
+    if(length(sel_sp)==1){
+      dysp <- sp_sel %>% cbind(L$xMS,.) %>% as.data.frame()
+      colnames(dysp)[2] <- colnames(L$MS)[sel_sp]
+      titre <- colnames(L$MS)[sel_sp]
+    }else{
+      dysp <- cbind(L$xMS,sp_sel) %>% as.data.frame()
+      titre <- "sp_align"
+    }
+    rownames(dysp) <- L$xMS
+
+    ftitre <- paste0(getwd(),"/Figures/") %>% dir() %>% grep(titre, .) %>% length() %>% add(1)
+    ftitre <- paste0(getwd(),"/Figures/dy_",titre,"_",ftitre)
+
+    rmarkdown::render(input = "C:/Users/huguenin/Documents/R/provoc2/markdown/print_dy_sp.Rmd", output_file = ftitre)
+  }
+}
+
+# Plot spectra tiff
+fx.spectra <- function(sel_sp = sp$mt$meta[sp$acq,"end"], pkm = 59, pkM = 205,
+                       L = sp, new_title = "fx_spectra", new_color = FALSE, leg = "r"){
+  # check the selection
+  if(is.character(sel_sp) == TRUE) sel_sp <- as.numeric(sel_sp)
+  if(length(sel_sp) > 30) print("Caution /!\ The number of spectra is too big. Select less spectra.")
+
+  # create variable for optimize zoom
+  xmin <- pkm
+  xmax <- pkM
+  cmin <- det_c(pkm - 0.3, L$xMS)
+  cmax <- det_c(pkM + 0.3, L$xMS)
+
+  # selection of major peaks
+  pk_short_list <- pk.short(pk_mat = L$peaks[c(sel_sp,sel_sp),])
+
+  fmr <- pk_short_list[2,]
+  ind_pk <- which.sup(fmr,mean(fmr))
+  if(length(fmr)/2 < length(ind_pk)) ind_pk <- which.sup(fmr,median(fmr))
+  pk_short_list <- pk_short_list[,ind_pk]
+
+  # select color
+  if(new_color == TRUE)  fx_color <- viridis(length(sel_sp),alpha = 0.8)
+  if(new_color == FALSE) fx_color <- rep_mtm("color", L, sel = "all")[sel_sp]
+
+  # define title
+  if(length(sel_sp)==1) new_title <- paste0("fx_",colnames(L$MS)[sel_sp])
+
+  ntitre <- paste0(getwd(),"/Figures/") %>% dir() %>% grep(new_title, .) %>% length() %>% add(1)
+  ntitre <- paste0("Figures/",new_title,"_",ntitre,"_zoom_",xmin,"_to_",xmax,".tif")
+
+  # calculate the max spectra
+  if(length(sel_sp)==1) sp_max <- L$MS[cmin:cmax,sel_sp]
+  if(length(sel_sp) >1) sp_max <- apply(L$MS[cmin:cmax,sel_sp],1,max)
+  ymax <- max(sp_max)*1.1
+
+  # define the legend postion
+  leg_pos <- "topright"
+  if(leg == "l") leg_pos <- "topleft"
+
+  # the plot
+  tiff(filename = ntitre, width = 1000, height = 580)
+    par(mar = c(5,5,5,0.1), cex.main=2, cex.lab = 2, cex.axis = 2, mgp = c(3.5,1.5,0))
+
+    # a plot with subline
+    matplot(L$xMS[cmin:cmax], sp_max, type = "l",
+            col = alpha("turquoise2",0.5), lwd = 5, ylim = c(0,ymax),
+            xlab = "m/z", ylab = "Relative intensity (u.a.)",
+            main = new_title, xaxt="n")
+
+    # the MS plot
+    matplot(L$xMS[cmin:cmax], L$MS[cmin:cmax,sel_sp],
+            type = "l", col = fx_color, add = TRUE)
+
+    # legend
+    if((leg != "n")&(length(sel_sp) >1)){
+      legend(leg_pos, bty = "n", col = fx_color,
+             legend = colnames(L$MS)[sel_sp], lty = 1)
+    }
+
+    # axis ...
+    axis(side=1,0:600, tcl=0,labels=FALSE)
+    axis(side=2,(-ymax:ymax)*2,tcl=0,labels=FALSE)
+    axis(side=3,0:600, tcl=0,labels=FALSE)
+    axis(side=4,(-ymax:ymax)*2,tcl=0,labels=FALSE)
+
+    # ... and ticks
+    axis(1, at = seq(dizaine(xmin), dizaine(xmax), 10), lwd.ticks = 2, tck = -0.03)
+    axis(1, at = seq(dizaine(xmin), dizaine(xmax) +10, 5), labels = FALSE, tck = -0.03)
+    axis(1, at = seq(dizaine(xmin), dizaine(xmax) +10, 1), labels = FALSE, tck = -0.01)
+    text(pk_short_list[1,], pk_short_list[2,], labels = pk_short_list[1,], cex = 0.8, pos = 3, offset = 0.5)
+    # end of plot
+    dev.off()
+}
+
+
+#### Plots ####
+
+monitor_plot_AUC <- function(M_num = M.Z(c(59, 137)), each_mass = TRUE,
+                             group = FALSE, graph_type = "dy", L = sp,
+                             Y_exp = FALSE, time_format = "date"){
+  # Mise en forme :
+  if(("kinetic" %in% dir("Figures"))==FALSE) dir.create("Figures/kinetic")
+  vp <- list(exp = Y_exp, time = time_format, grp = group)
+
+  # Graphe :
+
+  # Etape 1 : chaque mass ?
+  if(each_mass == TRUE){
+    # OUI
+
+    for(ma in M_num){ # ma = M_num[1]
+
+      # Etape 2 : chaque groupe ?
+      if(group != FALSE){
+        # OUI
+        grp <- L$mt$meta[,group][L$acq] %>% as.character() # on repere les groupes
+        for(u in unique(grp)){ # u = grp[1]
+
+          ind_PK <- L$acq[which(u == grp)]              # on repere les indices de chaques groupes
+
+          # Etape 3 : plot statique ou dynamique ?
+          if(graph_type == "fx"){
+            # plot fixe
+
+            titre <- c("Figures/kinetic/pk_at", ma,"of",u) %>%
+              str_flatten(" ") %>% paste0("_",vp$time,".tiff")
+            fx.cinetic.plot(L, titre, acq = ind_PK, MA = ma, VP = vp)
+
+          }else if(graph_type == "dy"){
+            # plot dynamique
+            titre <- str_flatten(ma, collapse = " ") %>% paste("peak at",.,"of", u, vp$time)
+            dy.cinetic.plot(L, titre, acq = ind_PK, MA = ma, VP = vp)
+          }
+        }
+
+      }else{
+        # NON
+
+        # Etape 3 : plot dynamique ou statique ?
+        if(graph_type == "fx"){
+          # plot statique
+
+          titre <- c("Figures/kinetic/pk_at", ma,"of",head(row.names(L$mt$meta)[L$acq])) %>%
+            str_flatten(" ") %>% paste0("_",vp$time,".tiff")
+          fx.cinetic.plot(L, titre, acq = L$acq, MA = ma, VP = vp)
+        }else if(graph_type == "dy"){
+          # plot dynamique
+          titre <- str_flatten(ma, collapse = " ") %>% paste("peak at",.,"of all selected", vp$time)
+          dy.cinetic.plot(L, titre, acq = L$acq, MA = ma, VP = vp)
+        }
+      }
+    }
+  }else{
+    # NON
+    ma <- M_num
+
+    # Etape 2 : chaque groupe ?
+    if(group != FALSE){
+      # OUI
+
+      grp <- L$mt$meta[,group][L$acq] %>% as.character() # on repere les groupes
+      for(u in unique(grp)){# u = unique(grp)[1]
+
+        ind_PK <- L$acq[which(u == grp)]              # on repere les indices de chaques groupes
+
+        # Etape 3 : plot statique ou dynamique ?
+        if(graph_type == "fx"){
+          # plot fixe
+
+          titre <- c("Figures/kinetic/pk_at", ma,"of",u) %>%
+            str_flatten(" ") %>% paste0("_",vp$time,".tiff")
+          fx.cinetic.plot(L, titre, acq = ind_PK, MA = ma, VP = vp)
+
+        }else if(graph_type == "dy"){
+          # plot dynamique
+          titre <- str_flatten(ma, collapse = " ") %>% paste("peak at",.,"of", u, vp$time)
+          dy.cinetic.plot(L, titre, acq = ind_PK, MA = ma, VP = vp)
+        }
+      }
+    }else{
+      # NON
+
+      # Etape 3 : plot statique ou dynamique ?
+      if(graph_type == "fx"){
+        # plot statique
+
+        titre <- c("Figures/kinetic/pk_at", ma,"of",head(row.names(L$mt$meta)[L$acq])) %>%
+          str_flatten(" ") %>% paste0("_",vp$time,".tiff")
+        fx.cinetic.plot(L, titre, acq = L$acq, MA = ma, VP = vp)
+
+      }else if(graph_type == "dy"){
+        # plot dynamique
+        titre <- str_flatten(ma, collapse = " ") %>% paste("peak at",.,"of all selected", vp$time)
+        dy.cinetic.plot(L, titre, acq = L$acq, MA = ma, VP = vp)
+      }
+    }
+  }
+}
+
+fx.cinetic.plot <- function(L, titre, acq = ind_PK, MA = ma, VP = vp){
+  # index for peaks and acquisitions
+  ind_pk <- which(colnames(L$peaks) %in% MA)
+  ind_Sacq <- ind.acq(acq,L)
+
+  # intensity
+  Ibn <- c(0, max(L$peaks[ind_Sacq, ind_pk]))
+
+  # time
+  if(VP$time == "time"){
+    Tbn <- c(0,0)
+    for(i in acq) Tbn[2] <- max(Tbn[2], L$Trecalc$timing[[i]])
+
+    unit = "s"
+    Tdiv = 1
+    if(Tbn[2]>600){
+      unit = "min"
+      Tdiv = 60
+    }
+    if(Tbn[2]>36000){
+      unit = "h"
+      Tdiv = 3600
+    }
+    Tbn <- Tbn/Tdiv
+
+    Xlab <- paste0("Time (",unit,")")
+    List_abs <- lapply(L$Trecalc$timing, divide_by, e2 = Tdiv)
+  }
+
+  # or date
+  if(VP$time == "date"){
+    Cdate <- as.POSIXct(Sys.time(), format="%m/%d/%Y %H:%M:%S")
+    attr(Cdate, "tzone") <- "UTC"
+    for(i in acq) Cdate <- c(Cdate, L$Trecalc$date[[i]])
+    Cdate <- Cdate[-1]
+    Tbn <- range(Cdate)
+
+    Xlab <- paste0("Date")
+    List_abs <- L$Trecalc$date
+  }
+
+  pk_col <- L$mt$meta[,"color"]
+  if(VP$exp == FALSE) VP$exp <- ""
+  if(VP$exp == TRUE){
+    VP$exp <- "y"
+    Ibn[1] <- 10
+  }
+
+  tiff(file = titre, width = 1200, height = 600,units = "px")
+  par(mar = c(5,5,2,16),mgp = c(3.5,1.5,0),xpd = NA,
+      cex.main=2, cex.lab = 2, cex.axis = 2)
+
+  if(VP$time == "date"){
+    matplot(Tbn, Ibn, type = "l", col = "white", log = VP$exp,
+            xlab = Xlab, xaxt = "n", ylab = "Intensity (a.u.)")
+    axis.POSIXct(1, x =  Cdate)
+  }else{
+    matplot(Tbn, Ibn, type = "l", col = "white", log = VP$exp,
+            xlab = Xlab, ylab = "Intensity (a.u.)")
+  }
+
+  nq <- 0
+  for(i in acq){ # i=1
+    cl <- 15
+    nq <- nq + 1
+    for(j in ind_pk){ # j = ind_pk[2]
+      coor <- ind.acq(i,L)
+
+      if(length(coor)>1){
+        fmr <- length(coor) + (1-nq)*round(length(coor)/30)
+        matplot(List_abs[[i]], L$peaks[coor,j], type = "l", lwd = 2,
+                col = pk_col[i], add = TRUE)
+        matplot(List_abs[[i]], L$peaks[coor,j],
+                pch = cl, col = pk_col[i], cex = 2, add = TRUE)
+      }else{
+        matplot(List_abs[[i]], L$peaks[coor,j],
+                pch = cl, col = pk_col[i], add = TRUE)
+      }
+      cl <- cl + 1
+    }
+  }
+
+  if(length(acq) <= 10){
+    l.acq <- acq
+  }else{
+    fmr <- length(acq) %>% subtract(4)
+    l.acq <- acq[c(1:5, fmr:length(acq))]
+  }
+
+  if(length(MA)<= 10){
+    l.num <- MA
+  }else{
+    fmr <- length(MA) %>% subtract(4)
+    l.num <- MA[c(1:5, fmr:length(MA))]
+  }
+
+  legend("topright", bty = "n", cex = 1.5, xpd = NA, inset = c(-0.26,0),
+         legend = c("Sample(s) :", L$names[l.acq]," ","Masse(s) :", l.num),
+         lty = c(NA,rep(1,length(l.acq)), NA, NA, rep(NA,length(l.num))), lwd = 2,
+         pch = c(NA,rep(NA,length(l.acq)), NA, NA, 14 + seq(1,length(l.num))),
+         col = c(NA,pk_col, NA, NA, rep("black", length(l.num))))
+
+  dev.off()
+}
+
+dy.cinetic.plot <- function(L, titre, acq = ind_PK, MA = ma, VP = vp){
+  # index for peaks and acquisitions
+  ind_pk <- which(colnames(L$peaks) %in% MA)
+  ind_Sacq <- ind.acq(acq,L)
+
+  # intensity
+  Ibn <- c(0, max(L$peaks[ind_Sacq, ind_pk]))
+
+  # time
+  if(VP$time == "time"){
+    Tbn <- c(0,0)
+    for(i in acq) Tbn[2] <- max(Tbn[2], L$Trecalc$timing[[i]])
+
+    unit = "s"
+    Tdiv = 1
+    if(Tbn[2]>600){
+      unit = "min"
+      Tdiv = 60
+    }
+    if(Tbn[2]>36000){
+      unit = "h"
+      Tdiv = 3600
+    }
+    Tbn <- Tbn/Tdiv
+
+    Xlab <- paste0("Time (",unit,")")
+    List_abs <- lapply(L$Trecalc$timing, divide_by, e2 = Tdiv)
+  }
+
+  # or date
+  if(VP$time == "date"){
+    Cdate <- as.POSIXct(Sys.time(), format="%m/%d/%Y %H:%M:%S")
+    attr(Cdate, "tzone") <- "UTC"
+    for(i in acq) Cdate <- c(Cdate, L$Trecalc$date[[i]])
+    Cdate <- Cdate[-1]
+    Tbn <- range(Cdate)
+
+    Xlab <- paste0("Date")
+    List_abs <- L$Trecalc$date
+  }
+
+  # pk_col <- L$mt$meta[,"color"]
+  if(VP$exp == FALSE) VP$exp <- ""
+  if(VP$exp == TRUE){
+    VP$exp <- "y"
+    Ibn[1] <- 10
+  }
+
+  # the list of data
+  dy_mat <- sapply(acq, dy.mat.pk, ipk = ind_pk, La = List_abs, Li = L,
+                   vp = VP, simplify = FALSE)
+
+  # convert to data.frame
+  ldy <- length(dy_mat)
+  if(ldy == 1){
+    dysp <- dy_mat[[1]] %>% as.data.frame()
+  }else{
+    dysp <- merge(dy_mat[[1]], dy_mat[[2]], all=TRUE)
+    if(ldy >= 3){
+      for(i in 3:ldy){
+        dysp <- merge(dysp, dy_mat[[i]], all=TRUE)
+      }
+    }
+  }
+  #dysp <- dysp[order(dysp[,3], dysp[,1]),]
+  dysp$ID <- NULL
+
+  # and plot
+  if(VP$time == "date"){
+    dysp$xT <- as.POSIXct(dysp$xT, origin = "1970-01-01", tz = "GMT")
+    dysp <- xts(dysp[,-1], order.by = dysp$xT, tz="GMT")
+
+    rmarkdown::render(input = "C:/Users/huguenin/Documents/R/provoc2/markdown/print_dypk_date.Rmd",
+                      output_file = paste0(L$wd, "/Figures/kinetic/", titre))
+  }else{
+    rmarkdown::render(input = "C:/Users/huguenin/Documents/R/provoc2/markdown/print_dypk_time.Rmd",
+                      output_file = paste0(L$wd, "/Figures/kinetic/", titre))
+  }
+}
+
+dy.mat.pk <- function(ac = acq, ipk = ind_pk, La = List_abs, Li = L, vp = VP){
+
+  if(vp$grp == FALSE) nid <- rownames(Li$mt$meta)[ac]
+  if(vp$grp != FALSE) nid <- Li$mt$meta[ac,vp$grp]
+
+  fmr <- rep(Li$mt$meta[ac,"ID"], length(La[[ac]])) %>% as.numeric()
+  fmr <- cbind(La[[ac]],fmr, Li$peaks[ind.acq(ac,Li), ipk])
+  colnames(fmr) <- c("xT","ID", paste(nid, colnames(Li$peaks)[ipk]))
+
+  return(fmr)
+}
+
+
+### Library ####
 
 library(tidyverse)
 library(rhdf5)
@@ -578,6 +1020,8 @@ library(magrittr)
 library(MALDIquant)
 library(viridis)
 library(rnirs)
+library(dygraphs)
+library(xts)
 
 #### Begin of test ####
 
@@ -591,7 +1035,7 @@ library(rnirs)
   sp <- import.h5(wd)
 
 # meta
-  sp <- import.meta("meta_2")
+  sp <- import.meta("meta_1")
 
 # workflow
   saveRDS(sp$workflow, "workflow.rds")
@@ -606,6 +1050,30 @@ library(rnirs)
 # time gestion
   sp <- re.calc.T.para(sp)
   sp <- re.init.T.para(sp)
+
+# spectra plot
+  # a dynamic plot :
+  dy.spectra(sel_sp = sp$mt$meta[sp$acq,"end"], new_color = FALSE)
+  # a standart plot :
+  fx.spectra(sel_sp = sp$mt$meta[sp$acq,"end"], pkm = 137, pkM = 137, leg = "l")
+  fx.spectra(sel_sp = 1, pkm = 59, pkM = 150)
+
+# kinetic plot
+  monitor_plot_AUC(M_num = c(69.055, 205.158, 157.021),
+                   each_mass = FALSE,
+                   group = "grp1",
+                   graph_type = "dy",
+                   L = sp,
+                   Y_exp = FALSE,
+                   time_format = "date")
+
+  # Liste des variables :
+  # M_num         les masses analysees. M.Z(c(69, 205, 157)) ou c(69.055, 205.158, 157.021)
+  # each_mass     un graphe pour chaque masse ou non. Logical TRUE or FALSE
+  # group         groupe avec le nom de la colonne en argument. Ex : "grp1". Or FALSE
+  # graph_type    choisi soit des graphe fixe "fx" au format tiff soit des graphe dynamique "dy" au format html
+  # Y_exp         L'ordonnée exponentielle. Logical. TRUE or FALSE
+  # time_format   L'abscisse est une duree ("time") ou une date ("date").
 
 # analyse
 
